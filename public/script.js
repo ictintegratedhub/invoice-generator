@@ -2,7 +2,7 @@
 // CONFIGURATION
 // ============================================================
 const CONFIG = {
-    ADMIN_PASSWORD: 'admin123',
+    ADMIN_PASSWORD: 'Admin_Invoice',
     INVOICE_PREFIX: 'AIIS',
     INVOICE_SEPARATOR: '/',
     PADDING_LENGTH: 3,
@@ -20,34 +20,48 @@ let state = {
 };
 
 // ============================================================
-// AUTHENTICATION (unchanged)
+// AUTHENTICATION
 // ============================================================
 function checkAuth() {
     const auth = sessionStorage.getItem('invoice_auth');
     if (auth === 'true') {
         state.auth = true;
-        document.getElementById('auth-overlay').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
+        const overlay = document.getElementById('auth-overlay');
+        const app = document.getElementById('app');
+        if (overlay) overlay.style.display = 'none';
+        if (app) app.style.display = 'block';
         initApp();
         startSessionTimer();
     }
 }
 
 function handleLogin() {
-    const password = document.getElementById('password-input').value;
+    const passwordInput = document.getElementById('password-input');
+    if (!passwordInput) return;
+    
+    const password = passwordInput.value;
     if (password === CONFIG.ADMIN_PASSWORD) {
         state.auth = true;
         sessionStorage.setItem('invoice_auth', 'true');
         sessionStorage.setItem('invoice_login_time', Date.now().toString());
-        document.getElementById('auth-overlay').style.display = 'none';
-        document.getElementById('app').style.display = 'block';
-        document.getElementById('auth-error').style.display = 'none';
+        
+        const overlay = document.getElementById('auth-overlay');
+        const app = document.getElementById('app');
+        const error = document.getElementById('auth-error');
+        
+        if (overlay) overlay.style.display = 'none';
+        if (app) app.style.display = 'block';
+        if (error) error.style.display = 'none';
+        
         initApp();
         startSessionTimer();
     } else {
-        document.getElementById('auth-error').style.display = 'block';
-        document.getElementById('password-input').value = '';
-        document.getElementById('password-input').focus();
+        const error = document.getElementById('auth-error');
+        if (error) error.style.display = 'block';
+        if (passwordInput) {
+            passwordInput.value = '';
+            passwordInput.focus();
+        }
     }
 }
 
@@ -55,14 +69,22 @@ function handleLogout() {
     sessionStorage.removeItem('invoice_auth');
     sessionStorage.removeItem('invoice_login_time');
     state.auth = false;
-    document.getElementById('app').style.display = 'none';
-    document.getElementById('auth-overlay').style.display = 'flex';
-    document.getElementById('password-input').value = '';
-    document.getElementById('auth-error').style.display = 'none';
+    
+    const app = document.getElementById('app');
+    const overlay = document.getElementById('auth-overlay');
+    const passwordInput = document.getElementById('password-input');
+    const error = document.getElementById('auth-error');
+    
+    if (app) app.style.display = 'none';
+    if (overlay) overlay.style.display = 'flex';
+    if (passwordInput) passwordInput.value = '';
+    if (error) error.style.display = 'none';
 }
 
 function startSessionTimer() {
     const loginTime = parseInt(sessionStorage.getItem('invoice_login_time'));
+    if (!loginTime) return;
+    
     const now = Date.now();
     const elapsed = (now - loginTime) / (1000 * 60);
     
@@ -74,6 +96,7 @@ function startSessionTimer() {
     
     setInterval(() => {
         const loginTime2 = parseInt(sessionStorage.getItem('invoice_login_time'));
+        if (!loginTime2) return;
         const now2 = Date.now();
         const elapsed2 = (now2 - loginTime2) / (1000 * 60);
         if (elapsed2 > CONFIG.SESSION_TIMEOUT) {
@@ -83,15 +106,27 @@ function startSessionTimer() {
     }, 60000);
 }
 
+// DOM Ready - Auth Event Listeners
 document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('password-input').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            handleLogin();
-        }
-    });
+    const passwordInput = document.getElementById('password-input');
+    const authBtn = document.getElementById('auth-btn');
+    const logoutBtn = document.getElementById('logout-btn');
     
-    document.getElementById('auth-btn').addEventListener('click', handleLogin);
-    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    if (passwordInput) {
+        passwordInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                handleLogin();
+            }
+        });
+    }
+    
+    if (authBtn) {
+        authBtn.addEventListener('click', handleLogin);
+    }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
     
     checkAuth();
 });
@@ -105,7 +140,8 @@ async function getNextInvoiceNumber() {
         const data = await response.json();
         if (data.success) {
             state.currentInvoiceNumber = data.invoice_number;
-            document.getElementById('invoice-number').textContent = data.invoice_number;
+            const display = document.getElementById('invoice-number');
+            if (display) display.textContent = data.invoice_number;
             return data;
         } else {
             throw new Error(data.error);
@@ -122,7 +158,8 @@ function getLocalInvoiceNumber() {
     const invoiceNumber = generateInvoiceNumber(nextId);
     localStorage.setItem('invoice_last_id', nextId.toString());
     state.currentInvoiceNumber = invoiceNumber;
-    document.getElementById('invoice-number').textContent = invoiceNumber;
+    const display = document.getElementById('invoice-number');
+    if (display) display.textContent = invoiceNumber;
     return { invoice_number: invoiceNumber, id: nextId };
 }
 
@@ -134,6 +171,36 @@ function generateInvoiceNumber(id) {
     const datePart = `${year}${month}${day}`;
     const paddedId = String(id).padStart(CONFIG.PADDING_LENGTH, '0');
     return `${CONFIG.INVOICE_PREFIX}${CONFIG.INVOICE_SEPARATOR}${datePart}${CONFIG.INVOICE_SEPARATOR}${paddedId}`;
+}
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+function getCurrency() {
+    const el = document.getElementById('currency');
+    return el ? el.value : '₦';
+}
+
+function formatCurrency(amount) {
+    const currency = getCurrency();
+    return `${currency}${amount.toFixed(2)}`;
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '--';
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
 }
 
 // ============================================================
@@ -153,10 +220,13 @@ function removeItem(index) {
 
 function renderItems() {
     const tbody = document.getElementById('items-body');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
     
     state.items.forEach((item, index) => {
         const tr = document.createElement('tr');
+        const amount = calculateItemTotal(item);
         tr.innerHTML = `
             <td class="text-center">${index + 1}</td>
             <td>
@@ -171,7 +241,7 @@ function renderItems() {
             <td>
                 <input type="number" class="item-discount" value="${item.discount}" data-index="${index}" step="1" min="0" max="100">
             </td>
-            <td class="item-amount text-right">${formatCurrency(calculateItemTotal(item))}</td>
+            <td class="item-amount text-right">${formatCurrency(amount)}</td>
             <td class="text-center">
                 <button type="button" class="remove-item-btn" data-index="${index}">×</button>
             </td>
@@ -179,31 +249,49 @@ function renderItems() {
         tbody.appendChild(tr);
     });
     
-    document.querySelectorAll('.item-desc, .item-qty, .item-rate, .item-discount').forEach(input => {
-        input.addEventListener('input', function() {
-            const index = parseInt(this.dataset.index);
-            const field = this.className.split('-')[1];
-            if (field === 'desc') {
-                state.items[index].description = this.value;
-            } else {
-                state.items[index][field] = parseFloat(this.value) || 0;
-                calculateTotals();
-                renderItems();
-            }
-        });
+    // Event listeners - use event delegation instead
+    tbody.querySelectorAll('.item-desc, .item-qty, .item-rate, .item-discount').forEach(input => {
+        input.removeEventListener('input', handleItemInput);
+        input.addEventListener('input', handleItemInput);
     });
     
-    document.querySelectorAll('.remove-item-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const index = parseInt(this.dataset.index);
-            removeItem(index);
-        });
+    tbody.querySelectorAll('.remove-item-btn').forEach(btn => {
+        btn.removeEventListener('click', handleRemoveItem);
+        btn.addEventListener('click', handleRemoveItem);
     });
 }
 
+function handleItemInput(e) {
+    const input = e.target;
+    const index = parseInt(input.dataset.index);
+    const className = input.className;
+    const field = className.includes('desc') ? 'desc' : 
+                  className.includes('qty') ? 'qty' : 
+                  className.includes('rate') ? 'rate' : 'discount';
+    
+    if (field === 'desc') {
+        state.items[index].description = input.value;
+    } else {
+        state.items[index][field] = parseFloat(input.value) || 0;
+        calculateTotals();
+        // Update the amount column for this row
+        const row = input.closest('tr');
+        const amountCell = row.querySelector('.item-amount');
+        if (amountCell) {
+            const amount = calculateItemTotal(state.items[index]);
+            amountCell.textContent = formatCurrency(amount);
+        }
+    }
+}
+
+function handleRemoveItem(e) {
+    const index = parseInt(e.target.dataset.index);
+    removeItem(index);
+}
+
 function calculateItemTotal(item) {
-    const subtotal = item.qty * item.rate;
-    const discountAmount = subtotal * (item.discount / 100);
+    const subtotal = (item.qty || 0) * (item.rate || 0);
+    const discountAmount = subtotal * ((item.discount || 0) / 100);
     return subtotal - discountAmount;
 }
 
@@ -222,6 +310,8 @@ function removePaymentRef(index) {
 
 function renderPaymentRefs() {
     const tbody = document.getElementById('refs-body');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
     
     state.paymentRefs.forEach((ref, index) => {
@@ -241,168 +331,202 @@ function renderPaymentRefs() {
         tbody.appendChild(tr);
     });
     
-    document.querySelectorAll('.ref-bank, .ref-account').forEach(input => {
-        input.addEventListener('input', function() {
-            const index = parseInt(this.dataset.index);
-            const field = this.className.split('-')[1];
-            state.paymentRefs[index][field] = this.value;
-        });
+    tbody.querySelectorAll('.ref-bank, .ref-account').forEach(input => {
+        input.removeEventListener('input', handleRefInput);
+        input.addEventListener('input', handleRefInput);
     });
     
-    document.querySelectorAll('.remove-ref-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const index = parseInt(this.dataset.index);
-            removePaymentRef(index);
-        });
+    tbody.querySelectorAll('.remove-ref-btn').forEach(btn => {
+        btn.removeEventListener('click', handleRemoveRef);
+        btn.addEventListener('click', handleRemoveRef);
     });
+}
+
+function handleRefInput(e) {
+    const input = e.target;
+    const index = parseInt(input.dataset.index);
+    const field = input.className.includes('bank') ? 'bank' : 'account';
+    state.paymentRefs[index][field] = input.value;
+}
+
+function handleRemoveRef(e) {
+    const index = parseInt(e.target.dataset.index);
+    removePaymentRef(index);
 }
 
 // ============================================================
 // CALCULATIONS
 // ============================================================
 function calculateTotals() {
-    const currency = document.getElementById('currency').value;
+    const currency = getCurrency();
     let subtotal = 0;
     let totalDiscount = 0;
     
     state.items.forEach(item => {
-        const itemSubtotal = item.qty * item.rate;
-        const itemDiscount = itemSubtotal * (item.discount / 100);
+        const itemSubtotal = (item.qty || 0) * (item.rate || 0);
+        const itemDiscount = itemSubtotal * ((item.discount || 0) / 100);
         subtotal += itemSubtotal;
         totalDiscount += itemDiscount;
     });
     
     const grandTotal = subtotal - totalDiscount;
     
-    document.getElementById('subtotal').textContent = `${currency}${subtotal.toFixed(2)}`;
-    document.getElementById('total-discount').textContent = `${currency}${totalDiscount.toFixed(2)}`;
-    document.getElementById('grand-total').textContent = `${currency}${grandTotal.toFixed(2)}`;
+    const subtotalEl = document.getElementById('subtotal');
+    const discountEl = document.getElementById('total-discount');
+    const grandTotalEl = document.getElementById('grand-total');
+    
+    if (subtotalEl) subtotalEl.textContent = `${currency}${subtotal.toFixed(2)}`;
+    if (discountEl) discountEl.textContent = `${currency}${totalDiscount.toFixed(2)}`;
+    if (grandTotalEl) grandTotalEl.textContent = `${currency}${grandTotal.toFixed(2)}`;
     
     return { subtotal, totalDiscount, grandTotal };
-}
-
-function formatCurrency(amount) {
-    const currency = document.getElementById('currency').value;
-    return `${currency}${amount.toFixed(2)}`;
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
 }
 
 // ============================================================
 // GENERATE INVOICE
 // ============================================================
 function generateInvoice() {
-    const clientName = document.getElementById('client-name').value.trim();
+    const clientName = document.getElementById('client-name');
     if (!clientName) {
-        alert('Please enter a client name.');
-        document.getElementById('client-name').focus();
+        alert('Client name field not found.');
         return;
     }
     
-    if (state.items.length === 0 || state.items.every(item => item.rate === 0)) {
+    const name = clientName.value.trim();
+    if (!name) {
+        alert('Please enter a client name.');
+        clientName.focus();
+        return;
+    }
+    
+    if (state.items.length === 0 || state.items.every(item => (item.rate || 0) === 0)) {
         alert('Please add at least one item with a rate.');
         return;
     }
     
-    const clientEmail = document.getElementById('client-email').value.trim();
-    const clientAddress = document.getElementById('client-address').value.trim();
-    const invoiceDate = document.getElementById('invoice-date').value;
-    const dueDate = document.getElementById('due-date').value;
-    const currency = document.getElementById('currency').value;
+    const clientEmail = document.getElementById('client-email');
+    const clientAddress = document.getElementById('client-address');
+    const invoiceDate = document.getElementById('invoice-date');
+    const dueDate = document.getElementById('due-date');
+    const currency = getCurrency();
     const totals = calculateTotals();
     
-    const formattedDate = invoiceDate ? formatDate(invoiceDate) : '--';
-    const formattedDueDate = dueDate ? formatDate(dueDate) : '--';
+    const formattedDate = invoiceDate ? formatDate(invoiceDate.value) : '--';
+    const formattedDueDate = dueDate ? formatDate(dueDate.value) : '--';
     
-    // Update invoice template
-    document.getElementById('render-inv-num').textContent = state.currentInvoiceNumber;
-    document.getElementById('render-date').textContent = formattedDate;
-    document.getElementById('render-due').textContent = formattedDueDate;
-    document.getElementById('render-currency').textContent = currency;
-    document.getElementById('render-client-name').textContent = clientName || 'Client Company / Name';
-    document.getElementById('render-client-address').textContent = clientAddress || 'Client Address Line';
-    document.getElementById('render-client-email').textContent = clientEmail || 'client@email.com';
-    document.getElementById('render-subtotal').textContent = `${currency}${totals.subtotal.toFixed(2)}`;
-    document.getElementById('render-total').textContent = `${currency}${totals.grandTotal.toFixed(2)}`;
+    // Update invoice template - with null checks
+    const renderInvNum = document.getElementById('render-inv-num');
+    const renderDate = document.getElementById('render-date');
+    const renderDue = document.getElementById('render-due');
+    const renderCurrency = document.getElementById('render-currency');
+    const renderClientName = document.getElementById('render-client-name');
+    const renderClientAddress = document.getElementById('render-client-address');
+    const renderClientEmail = document.getElementById('render-client-email');
+    const renderSubtotal = document.getElementById('render-subtotal');
+    const renderTotal = document.getElementById('render-total');
+    
+    if (renderInvNum) renderInvNum.textContent = state.currentInvoiceNumber || 'AIIS/20260101/001';
+    if (renderDate) renderDate.textContent = formattedDate;
+    if (renderDue) renderDue.textContent = formattedDueDate;
+    if (renderCurrency) renderCurrency.textContent = currency;
+    if (renderClientName) renderClientName.textContent = name || 'Client Company / Name';
+    if (renderClientAddress) renderClientAddress.textContent = (clientAddress ? clientAddress.value : '') || 'Client Address Line';
+    if (renderClientEmail) renderClientEmail.textContent = (clientEmail ? clientEmail.value : '') || 'client@email.com';
+    if (renderSubtotal) renderSubtotal.textContent = `${currency}${totals.subtotal.toFixed(2)}`;
+    if (renderTotal) renderTotal.textContent = `${currency}${totals.grandTotal.toFixed(2)}`;
     
     // Render items in template
     const tbody = document.getElementById('render-rows');
-    tbody.innerHTML = '';
-    state.items.forEach((item, index) => {
-        const tr = document.createElement('tr');
-        const amount = calculateItemTotal(item);
-        tr.innerHTML = `
-            <td class="text-center">${index + 1}</td>
-            <td>${escapeHtml(item.description) || '-'}</td>
-            <td class="text-center">${item.qty}</td>
-            <td class="text-right">${item.rate.toFixed(2)}</td>
-            <td class="text-center">${item.discount}%</td>
-            <td class="text-right">${formatCurrency(amount)}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-    
-    // Render payment references
-    const refsContainer = document.getElementById('render-payment-refs');
-    refsContainer.innerHTML = '';
-    if (state.paymentRefs.length === 0) {
-        // Default payment info if no refs added
-        refsContainer.innerHTML = `
-            <p><strong>Bank Name:</strong> First City Monument Bank</p>
-            <p><strong>Account Number:</strong> 2007876467</p>
-            <p><strong>Account Name:</strong> ACE ICT INTEGRATED HUB</p>
-        `;
-    } else {
-        state.paymentRefs.forEach(ref => {
-            const p = document.createElement('p');
-            if (ref.bank && ref.account) {
-                p.innerHTML = `<strong>${escapeHtml(ref.bank)}:</strong> ${escapeHtml(ref.account)}`;
-            } else if (ref.bank) {
-                p.textContent = ref.bank;
-            } else if (ref.account) {
-                p.textContent = ref.account;
-            }
-            refsContainer.appendChild(p);
+    if (tbody) {
+        tbody.innerHTML = '';
+        state.items.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            const amount = calculateItemTotal(item);
+            tr.innerHTML = `
+                <td class="text-center">${index + 1}</td>
+                <td>${escapeHtml(item.description) || '-'}</td>
+                <td class="text-center">${item.qty || 0}</td>
+                <td class="text-right">${(item.rate || 0).toFixed(2)}</td>
+                <td class="text-center">${(item.discount || 0)}%</td>
+                <td class="text-right">${formatCurrency(amount)}</td>
+            `;
+            tbody.appendChild(tr);
         });
     }
     
+    // Render payment references
+    const refsContainer = document.getElementById('render-payment-refs');
+    if (refsContainer) {
+        refsContainer.innerHTML = '';
+        if (state.paymentRefs.length === 0) {
+            refsContainer.innerHTML = `
+                <p><strong>Bank Name:</strong> First City Monument Bank</p>
+                <p><strong>Account Number:</strong> 2007876467</p>
+                <p><strong>Account Name:</strong> ACE ICT INTEGRATED HUB</p>
+            `;
+        } else {
+            state.paymentRefs.forEach(ref => {
+                const p = document.createElement('p');
+                if (ref.bank && ref.account) {
+                    p.innerHTML = `<strong>${escapeHtml(ref.bank)}:</strong> ${escapeHtml(ref.account)}`;
+                } else if (ref.bank) {
+                    p.textContent = ref.bank;
+                } else if (ref.account) {
+                    p.textContent = ref.account;
+                }
+                refsContainer.appendChild(p);
+            });
+        }
+    }
+    
     // Show invoice container
-    document.getElementById('invoice-container').style.display = 'block';
-    document.getElementById('preview-status').textContent = '✅ Generated';
-    document.getElementById('preview-status').className = 'preview-status active';
+    const container = document.getElementById('invoice-container');
+    if (container) container.style.display = 'block';
+    
+    const status = document.getElementById('preview-status');
+    if (status) {
+        status.textContent = '✅ Generated';
+        status.className = 'preview-status active';
+    }
     
     // Enable download buttons
-    document.getElementById('download-pdf-btn').disabled = false;
-    document.getElementById('download-png-btn').disabled = false;
+    const pdfBtn = document.getElementById('download-pdf-btn');
+    const pngBtn = document.getElementById('download-png-btn');
+    if (pdfBtn) pdfBtn.disabled = false;
+    if (pngBtn) pngBtn.disabled = false;
     
     // Fetch next invoice number
     getNextInvoiceNumber();
 }
 
-function formatDate(dateStr) {
-    const date = new Date(dateStr + 'T00:00:00');
-    return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
-}
-
-
-
+// ============================================================
+// EXPORT FUNCTIONS - FIXED PDF
+// ============================================================
 function downloadPDF() {
     const element = document.getElementById('invoice-template');
+    if (!element) {
+        alert('Invoice template not found. Please generate the invoice first.');
+        return;
+    }
+    
     const invoiceNum = state.currentInvoiceNumber || 'invoice';
     const safeFilename = invoiceNum.replace(/\//g, '-');
     
     const btn = document.getElementById('download-pdf-btn');
-    const originalText = btn.textContent;
-    btn.textContent = '⏳ Generating PDF...';
-    btn.disabled = true;
+    if (btn) {
+        btn.textContent = '⏳ Generating PDF...';
+        btn.disabled = true;
+    }
+    
+    // Check if jsPDF is loaded
+    if (typeof window.jspdf === 'undefined') {
+        alert('PDF library not loaded. Please check your internet connection and refresh.');
+        if (btn) {
+            btn.textContent = '📥 Download PDF';
+            btn.disabled = false;
+        }
+        return;
+    }
     
     html2canvas(element, {
         scale: 2,
@@ -438,20 +562,35 @@ function downloadPDF() {
         
         doc.save(`Invoice_${safeFilename}.pdf`);
         
-        btn.textContent = originalText;
-        btn.disabled = false;
+        if (btn) {
+            btn.textContent = '📥 Download PDF';
+            btn.disabled = false;
+        }
     }).catch(error => {
         console.error('PDF generation error:', error);
         alert('Error generating PDF. Please try again or use PNG export.');
-        btn.textContent = originalText;
-        btn.disabled = false;
+        if (btn) {
+            btn.textContent = '📥 Download PDF';
+            btn.disabled = false;
+        }
     });
 }
 
 function downloadPNG() {
     const element = document.getElementById('invoice-template');
+    if (!element) {
+        alert('Invoice template not found. Please generate the invoice first.');
+        return;
+    }
+    
     const invoiceNum = state.currentInvoiceNumber || 'invoice';
     const safeFilename = invoiceNum.replace(/\//g, '-');
+    
+    const btn = document.getElementById('download-png-btn');
+    if (btn) {
+        btn.textContent = '⏳ Generating PNG...';
+        btn.disabled = true;
+    }
     
     html2canvas(element, { 
         scale: 3,
@@ -463,10 +602,23 @@ function downloadPNG() {
         link.download = `Invoice_${safeFilename}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
+        if (btn) {
+            btn.textContent = '🖼️ Download PNG';
+            btn.disabled = false;
+        }
+    }).catch(error => {
+        console.error('PNG generation error:', error);
+        alert('Error generating PNG. Please try again.');
+        if (btn) {
+            btn.textContent = '🖼️ Download PNG';
+            btn.disabled = false;
+        }
     });
 }
 
-
+// ============================================================
+// RESET COUNTER
+// ============================================================
 function resetCounter() {
     if (confirm('⚠️ Are you sure you want to reset the invoice counter?\n\nThis will set the next invoice number to AIIS/YYYYMMDD/001.\n\nAre you sure?')) {
         const confirmAgain = confirm('⚠️⚠️ FINAL WARNING:\n\nThis action cannot be undone.\n\nContinue?');
@@ -478,44 +630,71 @@ function resetCounter() {
     }
 }
 
-
+// ============================================================
+// INITIALIZATION
+// ============================================================
 function initApp() {
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
-    document.getElementById('invoice-date').value = todayStr;
     
-    const dueDate = new Date(today);
-    dueDate.setDate(dueDate.getDate() + 14);
-    document.getElementById('due-date').value = dueDate.toISOString().slice(0, 10);
+    const invoiceDate = document.getElementById('invoice-date');
+    if (invoiceDate) invoiceDate.value = todayStr;
+    
+    const dueDate = document.getElementById('due-date');
+    if (dueDate) {
+        const due = new Date(today);
+        due.setDate(due.getDate() + 14);
+        dueDate.value = due.toISOString().slice(0, 10);
+    }
     
     getNextInvoiceNumber();
-    
-    
     addItem('', 1, 0, 0);
     
-    // Add first payment reference (optional - you can leave empty)
-    // addPaymentRef('', '');
+    // Add event listeners - with null checks
+    const addItemBtn = document.getElementById('add-item-btn');
+    if (addItemBtn) {
+        addItemBtn.addEventListener('click', function() {
+            addItem('', 1, 0, 0);
+        });
+    }
     
-    // Event listeners
-    document.getElementById('add-item-btn').addEventListener('click', function() {
-        addItem('', 1, 0, 0);
-    });
+    const addRefBtn = document.getElementById('add-ref-btn');
+    if (addRefBtn) {
+        addRefBtn.addEventListener('click', function() {
+            addPaymentRef('', '');
+        });
+    }
     
-    document.getElementById('add-ref-btn').addEventListener('click', function() {
-        addPaymentRef('', '');
-    });
+    const generateBtn = document.getElementById('generate-btn');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', generateInvoice);
+    }
     
-    document.getElementById('generate-btn').addEventListener('click', generateInvoice);
-    document.getElementById('download-pdf-btn').addEventListener('click', downloadPDF);
-    document.getElementById('download-png-btn').addEventListener('click', downloadPNG);
-    document.getElementById('reset-counter-btn').addEventListener('click', resetCounter);
+    const pdfBtn = document.getElementById('download-pdf-btn');
+    if (pdfBtn) {
+        pdfBtn.addEventListener('click', downloadPDF);
+    }
     
-    document.getElementById('currency').addEventListener('change', function() {
-        calculateTotals();
-        if (document.getElementById('invoice-container').style.display !== 'none') {
-            generateInvoice();
-        }
-    });
+    const pngBtn = document.getElementById('download-png-btn');
+    if (pngBtn) {
+        pngBtn.addEventListener('click', downloadPNG);
+    }
+    
+    const resetBtn = document.getElementById('reset-counter-btn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', resetCounter);
+    }
+    
+    const currencyEl = document.getElementById('currency');
+    if (currencyEl) {
+        currencyEl.addEventListener('change', function() {
+            calculateTotals();
+            const container = document.getElementById('invoice-container');
+            if (container && container.style.display !== 'none') {
+                generateInvoice();
+            }
+        });
+    }
     
     console.log('✅ Invoice System initialized');
     console.log('📄 Next Invoice:', state.currentInvoiceNumber);
