@@ -375,6 +375,58 @@ body {
     opacity: 0.8;
 }
 
+/* ===== PAYMENT REFERENCES ===== */
+.payment-refs-section {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid var(--border-color);
+}
+
+#refs-table th {
+    background: var(--primary-color);
+    color: white;
+    padding: 10px 8px;
+    text-align: left;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#refs-table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+#refs-table input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 13px;
+    transition: all 0.3s;
+}
+
+#refs-table input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 3px rgba(245, 176, 65, 0.1);
+}
+
+.remove-ref-btn {
+    padding: 4px 8px;
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s;
+}
+
+.remove-ref-btn:hover {
+    opacity: 0.8;
+}
+
 /* ===== TOTALS SECTION ===== */
 .totals-section {
     background: var(--light-bg);

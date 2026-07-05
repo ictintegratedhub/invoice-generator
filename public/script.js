@@ -2,16 +2,10 @@
 // CONFIGURATION
 // ============================================================
 const CONFIG = {
-    // Password (change this to your own secure password)
-    // For production, use environment variables
     ADMIN_PASSWORD: 'admin123',
-    
-    // Invoice number format
     INVOICE_PREFIX: 'AIIS',
     INVOICE_SEPARATOR: '/',
     PADDING_LENGTH: 3,
-    
-    // Auto-logout timer (minutes)
     SESSION_TIMEOUT: 60,
 };
 
@@ -20,12 +14,13 @@ const CONFIG = {
 // ============================================================
 let state = {
     items: [],
+    paymentRefs: [],
     currentInvoiceNumber: null,
     auth: false,
 };
 
 // ============================================================
-// AUTHENTICATION
+// AUTHENTICATION (unchanged)
 // ============================================================
 function checkAuth() {
     const auth = sessionStorage.getItem('invoice_auth');
@@ -77,7 +72,6 @@ function startSessionTimer() {
         return;
     }
     
-    // Check every minute
     setInterval(() => {
         const loginTime2 = parseInt(sessionStorage.getItem('invoice_login_time'));
         const now2 = Date.now();
@@ -89,7 +83,6 @@ function startSessionTimer() {
     }, 60000);
 }
 
-// Enter key for login
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('password-input').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
@@ -119,7 +112,6 @@ async function getNextInvoiceNumber() {
         }
     } catch (error) {
         console.error('Error fetching invoice number:', error);
-        // Fallback to localStorage
         return getLocalInvoiceNumber();
     }
 }
@@ -187,7 +179,6 @@ function renderItems() {
         tbody.appendChild(tr);
     });
     
-    // Add event listeners
     document.querySelectorAll('.item-desc, .item-qty, .item-rate, .item-discount').forEach(input => {
         input.addEventListener('input', function() {
             const index = parseInt(this.dataset.index);
@@ -214,6 +205,56 @@ function calculateItemTotal(item) {
     const subtotal = item.qty * item.rate;
     const discountAmount = subtotal * (item.discount / 100);
     return subtotal - discountAmount;
+}
+
+// ============================================================
+// PAYMENT REFERENCES MANAGEMENT
+// ============================================================
+function addPaymentRef(bank = '', account = '') {
+    state.paymentRefs.push({ bank, account });
+    renderPaymentRefs();
+}
+
+function removePaymentRef(index) {
+    state.paymentRefs.splice(index, 1);
+    renderPaymentRefs();
+}
+
+function renderPaymentRefs() {
+    const tbody = document.getElementById('refs-body');
+    tbody.innerHTML = '';
+    
+    state.paymentRefs.forEach((ref, index) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="text-center">${index + 1}</td>
+            <td>
+                <input type="text" class="ref-bank" value="${escapeHtml(ref.bank)}" data-index="${index}" placeholder="Bank Name">
+            </td>
+            <td>
+                <input type="text" class="ref-account" value="${escapeHtml(ref.account)}" data-index="${index}" placeholder="Account Number">
+            </td>
+            <td class="text-center">
+                <button type="button" class="remove-ref-btn" data-index="${index}">×</button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
+    document.querySelectorAll('.ref-bank, .ref-account').forEach(input => {
+        input.addEventListener('input', function() {
+            const index = parseInt(this.dataset.index);
+            const field = this.className.split('-')[1];
+            state.paymentRefs[index][field] = this.value;
+        });
+    });
+    
+    document.querySelectorAll('.remove-ref-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const index = parseInt(this.dataset.index);
+            removePaymentRef(index);
+        });
+    });
 }
 
 // ============================================================
@@ -274,7 +315,6 @@ function generateInvoice() {
     const currency = document.getElementById('currency').value;
     const totals = calculateTotals();
     
-    // Format dates
     const formattedDate = invoiceDate ? formatDate(invoiceDate) : '--';
     const formattedDueDate = dueDate ? formatDate(dueDate) : '--';
     
@@ -306,6 +346,30 @@ function generateInvoice() {
         tbody.appendChild(tr);
     });
     
+    // Render payment references
+    const refsContainer = document.getElementById('render-payment-refs');
+    refsContainer.innerHTML = '';
+    if (state.paymentRefs.length === 0) {
+        // Default payment info if no refs added
+        refsContainer.innerHTML = `
+            <p><strong>Bank Name:</strong> First City Monument Bank</p>
+            <p><strong>Account Number:</strong> 2007876467</p>
+            <p><strong>Account Name:</strong> ACE ICT INTEGRATED HUB</p>
+        `;
+    } else {
+        state.paymentRefs.forEach(ref => {
+            const p = document.createElement('p');
+            if (ref.bank && ref.account) {
+                p.innerHTML = `<strong>${escapeHtml(ref.bank)}:</strong> ${escapeHtml(ref.account)}`;
+            } else if (ref.bank) {
+                p.textContent = ref.bank;
+            } else if (ref.account) {
+                p.textContent = ref.account;
+            }
+            refsContainer.appendChild(p);
+        });
+    }
+    
     // Show invoice container
     document.getElementById('invoice-container').style.display = 'block';
     document.getElementById('preview-status').textContent = '✅ Generated';
@@ -328,31 +392,60 @@ function formatDate(dateStr) {
     });
 }
 
-// ============================================================
-// EXPORT FUNCTIONS
-// ============================================================
+
+
 function downloadPDF() {
     const element = document.getElementById('invoice-template');
     const invoiceNum = state.currentInvoiceNumber || 'invoice';
     const safeFilename = invoiceNum.replace(/\//g, '-');
     
-    const opt = {
-        margin: 0.5,
-        filename: `Invoice_${safeFilename}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-            scale: 2,
-            useCORS: true,
-            logging: false
-        },
-        jsPDF: { 
-            unit: 'in', 
-            format: 'letter', 
-            orientation: 'portrait' 
-        }
-    };
+    const btn = document.getElementById('download-pdf-btn');
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ Generating PDF...';
+    btn.disabled = true;
     
-    html2pdf().set(opt).from(element).save();
+    html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: element.scrollWidth,
+        height: element.scrollHeight,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
+    }).then(canvas => {
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        
+        const imgWidth = 210;
+        const pageHeight = 297;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        
+        let heightLeft = imgHeight;
+        let position = 0;
+        
+        doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        
+        while (heightLeft > 0) {
+            position = heightLeft - imgHeight;
+            doc.addPage();
+            doc.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+        }
+        
+        doc.save(`Invoice_${safeFilename}.pdf`);
+        
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }).catch(error => {
+        console.error('PDF generation error:', error);
+        alert('Error generating PDF. Please try again or use PNG export.');
+        btn.textContent = originalText;
+        btn.disabled = false;
+    });
 }
 
 function downloadPNG() {
@@ -373,9 +466,7 @@ function downloadPNG() {
     });
 }
 
-// ============================================================
-// RESET COUNTER
-// ============================================================
+
 function resetCounter() {
     if (confirm('⚠️ Are you sure you want to reset the invoice counter?\n\nThis will set the next invoice number to AIIS/YYYYMMDD/001.\n\nAre you sure?')) {
         const confirmAgain = confirm('⚠️⚠️ FINAL WARNING:\n\nThis action cannot be undone.\n\nContinue?');
@@ -387,11 +478,8 @@ function resetCounter() {
     }
 }
 
-// ============================================================
-// INITIALIZATION
-// ============================================================
+
 function initApp() {
-    // Set default dates
     const today = new Date();
     const todayStr = today.toISOString().slice(0, 10);
     document.getElementById('invoice-date').value = todayStr;
@@ -400,15 +488,21 @@ function initApp() {
     dueDate.setDate(dueDate.getDate() + 14);
     document.getElementById('due-date').value = dueDate.toISOString().slice(0, 10);
     
-    // Get initial invoice number
     getNextInvoiceNumber();
     
-    // Add first item
+    
     addItem('', 1, 0, 0);
+    
+    // Add first payment reference (optional - you can leave empty)
+    // addPaymentRef('', '');
     
     // Event listeners
     document.getElementById('add-item-btn').addEventListener('click', function() {
         addItem('', 1, 0, 0);
+    });
+    
+    document.getElementById('add-ref-btn').addEventListener('click', function() {
+        addPaymentRef('', '');
     });
     
     document.getElementById('generate-btn').addEventListener('click', generateInvoice);
@@ -416,7 +510,6 @@ function initApp() {
     document.getElementById('download-png-btn').addEventListener('click', downloadPNG);
     document.getElementById('reset-counter-btn').addEventListener('click', resetCounter);
     
-    // Currency change updates totals
     document.getElementById('currency').addEventListener('change', function() {
         calculateTotals();
         if (document.getElementById('invoice-container').style.display !== 'none') {
