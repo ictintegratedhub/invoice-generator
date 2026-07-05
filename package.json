@@ -1,0 +1,16 @@
+{
+  "name": "invoice-system",
+  "version": "1.0.0",
+  "description": "Invoice Management System for ICT Integrated Hub",
+  "main": "api/invoice.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "keywords": ["invoice", "billing", "vercel"],
+  "author": "ICT Integrated Hub",
+  "license": "MIT",
+  "dependencies": {
+    "@vercel/node": "^2.15.10"
+  }
+}
