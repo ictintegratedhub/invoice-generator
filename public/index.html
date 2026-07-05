@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice System - ICT Integrated Hub</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body>
+    <!-- AUTH OVERLAY -->
+    <div id="auth-overlay">
+        <div class="auth-box">
+            <div class="auth-logo">
+                <img src="logo.png" alt="ICT Integrated Hub" onerror="this.style.display='none'">
+                <h2>ICT INTEGRATED HUB</h2>
+                <p>Invoice Management System</p>
+            </div>
+            <div class="auth-form">
+                <label for="password-input">Enter Admin Password</label>
+                <input type="password" id="password-input" placeholder="Enter password..." autofocus>
+                <button id="auth-btn">Unlock System</button>
+                <div id="auth-error" class="auth-error" style="display:none;">Invalid password. Please try again.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app" style="display:none;">
+        <div class="app-container">
+            <!-- Header -->
+            <header class="app-header">
+                <div class="header-left">
+                    <div class="logo-small">
+                        <img src="logo.png" alt="ICT Integrated Hub" onerror="this.style.display='none'">
+                        <span>ICT INTEGRATED HUB</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="invoice-counter">
+                        Next Invoice: <strong id="invoice-number">Loading...</strong>
+                    </div>
+                    <button id="logout-btn" class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Left: Form -->
+                <div class="form-section">
+                    <h2>Create New Invoice</h2>
+                    
+                    <form id="invoice-form" autocomplete="off">
+                        <!-- Client Details -->
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="client-name">Client Name *</label>
+                                <input type="text" id="client-name" placeholder="Client Company / Name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="client-email">Client Email</label>
+                                <input type="email" id="client-email" placeholder="client@email.com">
+                            </div>
+                            <div class="form-group full-width">
+                                <label for="client-address">Client Address</label>
+                                <input type="text" id="client-address" placeholder="Client Address Line">
+                            </div>
+                        </div>
+
+                        <!-- Invoice Details -->
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="invoice-date">Invoice Date</label>
+                                <input type="date" id="invoice-date">
+                            </div>
+                            <div class="form-group">
+                                <label for="due-date">Due Date</label>
+                                <input type="date" id="due-date">
+                            </div>
+                            <div class="form-group">
+                                <label for="currency">Currency</label>
+                                <select id="currency">
+                                    <option value="₦">NGN (₦)</option>
+                                    <option value="$">USD ($)</option>
+                                    <option value="€">EUR (€)</option>
+                                    <option value="£">GBP (£)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Items Table -->
+                        <div class="items-section">
+                            <div class="items-header">
+                                <h3>Invoice Items</h3>
+                                <button type="button" id="add-item-btn" class="btn-add-item">+ Add Item</button>
+                            </div>
+                            
+                            <div class="table-container">
+                                <table id="items-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:5%;">#</th>
+                                            <th style="width:35%;">Description</th>
+                                            <th style="width:10%;">Qty</th>
+                                            <th style="width:15%;">Unit Price</th>
+                                            <th style="width:10%;">Disc %</th>
+                                            <th style="width:15%;">Amount</th>
+                                            <th style="width:10%;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="items-body">
+                                        <!-- Dynamic rows -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Totals -->
+                            <div class="totals-section">
+                                <div class="total-line">
+                                    <span>Subtotal:</span>
+                                    <span id="subtotal">₦0.00</span>
+                                </div>
+                                <div class="total-line discount-line">
+                                    <span>Total Discount:</span>
+                                    <span id="total-discount">₦0.00</span>
+                                </div>
+                                <div class="total-line grand-total">
+                                    <span>Total:</span>
+                                    <span id="grand-total">₦0.00</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="actions-section">
+                            <button type="button" id="generate-btn" class="btn-primary">
+                                📄 Generate Invoice
+                            </button>
+                            <button type="button" id="download-pdf-btn" class="btn-secondary" disabled>
+                                📥 Download PDF
+                            </button>
+                            <button type="button" id="download-png-btn" class="btn-secondary" disabled>
+                                🖼️ Download PNG
+                            </button>
+                            <button type="button" id="reset-counter-btn" class="btn-danger">
+                                🔄 Reset Counter
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Right: Invoice Preview -->
+                <div class="preview-section">
+                    <div class="preview-header">
+                        <h3>Invoice Preview</h3>
+                        <span id="preview-status" class="preview-status">Ready</span>
+                    </div>
+                    <div id="invoice-container" class="invoice-container">
+                        <div id="invoice-template" class="invoice-card">
+                            <!-- Header -->
+                            <div class="invoice-header">
+                                <div class="company-details">
+                                    <img src="logo.png" alt="ICT Integrated Hub" class="invoice-logo" onerror="this.style.display='none'">
+                                    <h1>ICT INTEGRATED HUB</h1>
+                                    <p>📞 +234 (0) 815 614 4699</p>
+                                    <p>✉️ contact@ictintegratedhub.site</p>
+                                    <p>🌐 ictintegratedhub.site</p>
+                                </div>
+                                <div class="invoice-title-area">
+                                    <h2>INVOICE</h2>
+                                    <div class="meta-grid">
+                                        <span class="meta-label">Invoice Number:</span>
+                                        <span class="meta-value" id="render-inv-num">AIIS/20260101/001</span>
+                                        
+                                        <span class="meta-label">Date:</span>
+                                        <span class="meta-value" id="render-date">--</span>
+                                        
+                                        <span class="meta-label">Due Date:</span>
+                                        <span class="meta-value" id="render-due">--</span>
+                                        
+                                        <span class="meta-label">Currency:</span>
+                                        <span class="meta-value" id="render-currency">₦</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bill To -->
+                            <div class="billing-section">
+                                <div class="bill-to">
+                                    <h3>Bill To:</h3>
+                                    <br>
+                                    <strong id="render-client-name">Client Company / Name</strong><br>
+                                    <span id="render-client-address">Client Address Line</span><br>
+                                    <span id="render-client-email">client@email.com</span>
+                                </div>
+                            </div>
+
+                            <!-- Items Table -->
+                            <table class="invoice-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 8%;">#</th>
+                                        <th>Description</th>
+                                        <th class="text-center" style="width: 8%;">Qty</th>
+                                        <th class="text-right" style="width: 15%;">Unit Price</th>
+                                        <th class="text-center" style="width: 10%;">Disc %</th>
+                                        <th class="text-right" style="width: 18%;">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="render-rows">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+
+                            <!-- Footer -->
+                            <div class="footer-section">
+                                <div class="payment-info">
+                                    <h4>Payment Preferences</h4>
+                                    <p><strong>Bank Name:</strong> First City Monument Bank</p>
+                                    <p><strong>Account Number:</strong> 2007876467</p>
+                                    <p><strong>Account Name:</strong> ACE ICT INTEGRATED HUB</p>
+                                </div>
+                                
+                                <div class="total-box">
+                                    <div class="total-row">
+                                        <span>Subtotal:</span>
+                                        <span id="render-subtotal">₦0.00</span>
+                                    </div>
+                                    <div class="total-row grand-total">
+                                        <span>Total:</span>
+                                        <span id="render-total">₦0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
