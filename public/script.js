@@ -142,12 +142,14 @@ async function getNextInvoiceNumber() {
             state.currentInvoiceNumber = data.invoice_number;
             const display = document.getElementById('invoice-number');
             if (display) display.textContent = data.invoice_number;
+            console.log('✅ Server invoice number:', data.invoice_number);
             return data;
         } else {
             throw new Error(data.error);
         }
     } catch (error) {
         console.error('Error fetching invoice number:', error);
+        console.log('⚠️ Falling back to localStorage');
         return getLocalInvoiceNumber();
     }
 }
@@ -160,6 +162,7 @@ function getLocalInvoiceNumber() {
     state.currentInvoiceNumber = invoiceNumber;
     const display = document.getElementById('invoice-number');
     if (display) display.textContent = invoiceNumber;
+    console.log('📄 Local invoice number:', invoiceNumber);
     return { invoice_number: invoiceNumber, id: nextId };
 }
 
@@ -458,24 +461,28 @@ function generateInvoice() {
     const refsContainer = document.getElementById('render-payment-refs');
     if (refsContainer) {
         refsContainer.innerHTML = '';
-        if (state.paymentRefs.length === 0) {
-            refsContainer.innerHTML = `
-                <p><strong>Bank Name:</strong> First City Monument Bank</p>
-                <p><strong>Account Number:</strong> 2007876467</p>
-                <p><strong>Account Name:</strong> ACE ICT INTEGRATED HUB</p>
-            `;
-        } else {
+        
+        // Check if user added custom payment references
+        if (state.paymentRefs.length > 0 && state.paymentRefs.some(ref => ref.bank || ref.account)) {
+            // Show user-added references
             state.paymentRefs.forEach(ref => {
                 const p = document.createElement('p');
                 if (ref.bank && ref.account) {
                     p.innerHTML = `<strong>${escapeHtml(ref.bank)}:</strong> ${escapeHtml(ref.account)}`;
                 } else if (ref.bank) {
-                    p.textContent = ref.bank;
+                    p.innerHTML = `<strong>${escapeHtml(ref.bank)}</strong>`;
                 } else if (ref.account) {
                     p.textContent = ref.account;
                 }
                 refsContainer.appendChild(p);
             });
+        } else {
+            // Show default payment info ONLY if no custom refs added
+            refsContainer.innerHTML = `
+                <p><strong>Bank Name:</strong> First City Monument Bank</p>
+                <p><strong>Account Number:</strong> 2007876467</p>
+                <p><strong>Account Name:</strong> ACE ICT INTEGRATED HUB</p>
+            `;
         }
     }
     

@@ -1,12 +1,36 @@
-// File: api/invoice.js
+ // File: api/invoice.js
 // Serverless function for auto-incrementing invoice numbers
 
 import fs from 'fs';
 import path from 'path';
 
-// For Vercel production, use /tmp for writable storage
-// Note: /tmp is ephemeral - consider using Vercel KV for production
+// Use /tmp for Vercel (ephemeral but persists between function calls)
 const COUNTER_FILE = path.join('/tmp', 'invoice-counter.json');
+
+// Helper to get counter with fallback
+function getCounter() {
+    try {
+        if (fs.existsSync(COUNTER_FILE)) {
+            const data = fs.readFileSync(COUNTER_FILE, 'utf8');
+            const parsed = JSON.parse(data);
+            return parsed.last_id || 0;
+        }
+    } catch (error) {
+        console.log('Counter file read error:', error);
+    }
+    return 0;
+}
+
+// Helper to save counter
+function saveCounter(id) {
+    try {
+        fs.writeFileSync(COUNTER_FILE, JSON.stringify({ last_id: id }));
+        return true;
+    } catch (error) {
+        console.log('Counter file write error:', error);
+        return false;
+    }
+}
 
 export default async function handler(req, res) {
     // Enable CORS
@@ -22,23 +46,13 @@ export default async function handler(req, res) {
     }
     
     try {
-        let lastId = 0;
-        
-        // Read current counter
-        try {
-            if (fs.existsSync(COUNTER_FILE)) {
-                const data = fs.readFileSync(COUNTER_FILE, 'utf8');
-                const parsed = JSON.parse(data);
-                lastId = parsed.last_id || 0;
-            }
-        } catch (error) {
-            console.log('Counter file not found or invalid, starting from 0');
-        }
+        // Get current counter
+        let lastId = getCounter();
         
         // Increment
         const nextId = lastId + 1;
         
-        // Generate invoice number
+        // Generate invoice number with YYYYMMDD format
         const date = new Date();
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -48,7 +62,9 @@ export default async function handler(req, res) {
         const invoiceNumber = `AIIS/${datePart}/${paddedId}`;
         
         // Save counter
-        fs.writeFileSync(COUNTER_FILE, JSON.stringify({ last_id: nextId }));
+        const saved = saveCounter(nextId);
+        
+        console.log(`📄 Generated invoice: ${invoiceNumber} (ID: ${nextId}, Saved: ${saved})`);
         
         res.status(200).json({
             success: true,
